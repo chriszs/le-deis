@@ -4,7 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "deis": "^0.0.3",
-    "greenlock-express": "^2.0.9"
+    "axios": "^0.16.1",
+    "greenlock": "^2.1.14"
   }
 }
