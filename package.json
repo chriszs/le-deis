@@ -5,6 +5,7 @@
   "license": "MIT",
   "dependencies": {
     "axios": "^0.16.1",
+    "bluebird": "^3.5.0",
     "greenlock": "^2.1.14"
   }
 }
