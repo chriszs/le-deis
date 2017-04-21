@@ -1,21 +1,40 @@
 // jshint esnext:true
 
 const axios = require('axios'),
-      bluebird = require('bluebird');
+      bluebird = require('bluebird'),
+      express = require('express'),
+      greenlock = require('greenlock-express');
 
 const domain = process.env.DEIS_DOMAIN;
 const controller = 'http://deis.' + domain + '/v2/'; // assumes some stuff
+
+let domains = [];
 
 let deis = axios.create({
     baseURL: controller
 });
 
+let app = express();
+
+app.use('/', function (req, res) {
+    res.end('Updating, will be right back');
+});
+
+let lex = greenlock.create({
+    server: 'staging',
+    email: 'john.doe@example.com',
+    agreeTos: true,
+    approveDomains: ['example.com'],
+    app: app
+});
+
+lex.listen(5000, 5001);
+
 function getDomains(app) {
     return deis.get('apps/' + app.id + '/domains/');
 }
 
-let domains = [];
-
+// login to Deis
 deis.post('auth/login/',{
         username: process.env.DEIS_USER,
         password: process.env.DEIS_PASS
@@ -33,6 +52,7 @@ deis.post('auth/login/',{
             }
         });
 
+        // get Deis apps
         return deis.get('apps');
     })
     .catch((error) => {
@@ -43,6 +63,7 @@ deis.post('auth/login/',{
             return 'web' in app.structure;
         });
 
+        // get list of domains from each app
         return bluebird.map(apps, getDomains, {
             concurrency: 1
         });
@@ -58,6 +79,7 @@ deis.post('auth/login/',{
             });
         });
 
+        // get list of certs
         return deis.get('certs');
     })
     .catch((error) => {
@@ -78,6 +100,8 @@ deis.post('auth/login/',{
 
             return keep;
         });
+
+        console.log(lex);
 
         // TK domainsWithoutCerts
 
