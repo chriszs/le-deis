@@ -1,10 +1,13 @@
 // jshint esnext:true
 
 const axios = require('axios'),
+      basicAuth = require('express-basic-auth'),
       bluebird = require('bluebird'),
       express = require('express'),
-      greenlock = require('greenlock-express');
+      greenlock = require('greenlock'),
+      http = require('http');
 
+const port = process.env.PORT || 5000;
 const domain = process.env.DEIS_DOMAIN;
 const controller = 'http://deis.' + domain + '/v2/'; // assumes some stuff
 
@@ -14,13 +17,7 @@ let deis = axios.create({
     baseURL: controller
 });
 
-let app = express();
-
-app.use('/', function (req, res) {
-    res.end('Updating, will be right back');
-});
-
-let lex = greenlock.create({
+let le = greenlock.create({
     server: 'staging',
     email: 'john.doe@example.com',
     agreeTos: true,
@@ -28,7 +25,40 @@ let lex = greenlock.create({
     app: app
 });
 
-lex.listen(5000, 5001);
+let app = express();
+
+app.use('/', le.middleware());
+
+app.use(basicAuth({
+    authorizeAsync: true,
+    authorizer(user,pass,cb) {
+        axios.post('auth/login/',{
+            username: user,
+            password: pass,
+            baseURL: controller
+        })
+        .catch((error) => {
+            cb(new Error('failed to login to Deis'),false);
+        })
+        .then((response) => {
+            const token = response.data.token;
+
+            deis = axios.create({
+                baseURL: controller,
+                headers: {
+                    Authorization: 'token ' + token
+                }
+            });
+        });
+    }
+}));
+
+app.use(function (err, req, res, next) {
+    res.status(500)
+        .send('Updating, will be right back');
+});
+
+app.listen(port);
 
 function getDomains(app) {
     return deis.get('apps/' + app.id + '/domains/');
@@ -104,5 +134,9 @@ deis.post('auth/login/',{
         console.log(lex);
 
         // TK domainsWithoutCerts
+
+        return le.register({
+            domains: ['TK']
+        });
 
     });
